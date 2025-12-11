@@ -1,0 +1,50 @@
+---
+name: "main"
+
+on:
+  workflow_call:
+    inputs:
+      DEV_CICD_DEBUG:
+        description: "Enable debug mode"
+        default: "NONE"
+        required: false
+        type: "string"
+
+permissions:
+  contents: read
+
+env:
+  BL64_LIB_CICD: "YES"
+  DEV_TEST_BASH_RUNNER_ENVIRONMENT: "ON"
+  DEV_CICD_DEBUG: "${{ inputs.DEV_CICD_DEBUG }}"
+
+jobs:
+  sast-gitleaks:
+    runs-on: "ubuntu-latest"
+    steps:
+
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Check pre-requisites"
+        run: |
+          test -f ./bin/dev-set || { echo "::error title=dependency-check::DevBin64 is not available in the target repository" && exit 1; }
+          test -f ./bin/dev-lib-gitleaks || { echo "::error title=dependency-check::GitLeaks module not installed in the target repository" && exit 1; }
+
+      - name: "Cache local tools"
+        uses: "actions/cache@v4"
+        with:
+          path: ./lib
+          key: ${{ runner.os }}-lib-cache
+          restore-keys: |
+            ${{ runner.os }}-lib-cache
+
+      - name: "Prepare environment"
+        run: "./bin/dev-lib-base"
+
+      - name: "Download tools"
+        run: "./bin/dev-lib-gitleaks"
+
+      - name: "Run SAST"
+        run: "./bin/dev-sast-gitleaks"
+...
