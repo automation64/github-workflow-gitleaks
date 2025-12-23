@@ -17,6 +17,7 @@ env:
   BL64_LIB_CICD: "YES"
   DEV_TEST_BASH_RUNNER_ENVIRONMENT: "ON"
   DEV_CICD_DEBUG: "${{ inputs.DEV_CICD_DEBUG }}"
+  MY_REPORT_PATH: "./logs/gitleaks/gitleaks.sarif"
 
 jobs:
   sast-gitleaks:
@@ -32,19 +33,32 @@ jobs:
           test -f ./bin/dev-lib-gitleaks || { echo "::error title=dependency-check::GitLeaks module not installed in the target repository" && exit 1; }
 
       - name: "Cache local tools"
-        uses: "actions/cache@v4"
+        uses: "actions/cache@v5"
         with:
-          path: ./lib
-          key: ${{ runner.os }}-lib-cache
-          restore-keys: |
-            ${{ runner.os }}-lib-cache
-
-      - name: "Prepare environment"
-        run: "./bin/dev-lib-base"
+          path: \
+            ./lib/bl64
+            ./lib/inst64
+          key: "lib-base"
 
       - name: "Download tools"
-        run: "./bin/dev-lib-gitleaks"
+        run: |
+          ./bin/dev-lib-base &&
+          ./bin/dev-lib-gitleaks
 
       - name: "Run SAST"
         run: "./bin/dev-sast-gitleaks"
+
+      - name: "Upload report to CodeQL"
+        uses: "github/codeql-action/upload-sarif@v4"
+        if: always()
+        with:
+          sarif_file: "${{ env.MY_REPORT_PATH }}"
+          category: "secrets"
+
+      - name: "Save report artifact"
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: "gitleaks.sarif"
+          path: "${{ env.MY_REPORT_PATH }}"
 ...
