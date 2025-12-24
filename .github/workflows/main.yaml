@@ -1,5 +1,5 @@
 ---
-name: "main"
+name: "Automation64/SAST/GitLeaks"
 
 on:
   workflow_call:
@@ -10,19 +10,25 @@ on:
         required: false
         type: "string"
 
-permissions:
-  contents: read
-
 env:
   BL64_LIB_CICD: "YES"
   DEV_TEST_BASH_RUNNER_ENVIRONMENT: "ON"
   DEV_CICD_DEBUG: "${{ inputs.DEV_CICD_DEBUG }}"
   MY_REPORT_PATH: "./logs/gitleaks/gitleaks.sarif"
+  MY_VERSION: "0.1.0"
 
 jobs:
   sast-gitleaks:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
     runs-on: "ubuntu-latest"
     steps:
+
+      - name: "Show Workflow Version"
+        run: |
+            echo "${{env.MY_VERSION}}"
 
       - name: "Checkout repository"
         uses: actions/checkout@v6
@@ -50,13 +56,15 @@ jobs:
 
       - name: "Upload report to CodeQL"
         uses: "github/codeql-action/upload-sarif@v4"
+        continue-on-error: true
         if: always()
         with:
           sarif_file: "${{ env.MY_REPORT_PATH }}"
           category: "secrets"
 
-      - name: "Save report artifact"
+      - name: "Save report as repository artifact"
         uses: actions/upload-artifact@v6
+        continue-on-error: true
         if: always()
         with:
           name: "gitleaks.sarif"
